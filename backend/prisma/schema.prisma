@@ -1,0 +1,497 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Auth & Users (Store Owners)
+// ============================================================
+
+model User {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  password       String?
+  name           String
+  role           Role     @default(USER)
+  plan           Plan     @default(FREE)
+  planExpiresAt  DateTime?
+  googleId       String?  @unique
+  totpSecret     String?
+  totpEnabled    Boolean  @default(false)
+  avatarUrl      String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  refreshTokens     RefreshToken[]
+  stores            Store[]
+  payments          Payment[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  organization      OrganizationMember?
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique @db.VarChar(500)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+// ============================================================
+// Store (Public Page)
+// ============================================================
+
+model Store {
+  id          String  @id @default(uuid())
+  userId      String
+  slug        String  @unique
+  name        String
+  description String? @db.Text
+  category    String?
+  logoUrl     String?
+  bannerUrl   String?
+  phone       String?
+  whatsapp    String?
+  instagram   String?
+  website     String?
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?
+  lat         Float?
+  lng         Float?
+  hours       String? @db.Text // JSON: {"mon":"09:00-18:00",...}
+  theme       String  @default("default")
+  isPublished Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loyaltyPrograms  LoyaltyProgram[]
+  members          Member[]
+  storeViews       StoreView[]
+  campaigns        Campaign[]
+  staffMembers     StaffMember[]
+
+  @@map("stores")
+}
+
+// ============================================================
+// Loyalty Programs
+// ============================================================
+
+model LoyaltyProgram {
+  id                String      @id @default(uuid())
+  storeId           String
+  name              String
+  description       String?     @db.Text
+  type              ProgramType
+  pointsPerCurrency Float?      // e.g., 1 point per R$1
+  stampsToReward    Int?        // e.g., 10 stamps = 1 free
+  cashbackPercent   Float?      // e.g., 5%
+  pointsExpireDays  Int?        // null = never expire
+  iconUrl           String?
+  isActive          Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  store            Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  rewards          Reward[]
+  tiers            Tier[]
+  memberPrograms   MemberProgram[]
+  transactions     Transaction[]
+  campaigns        Campaign[]
+
+  @@map("loyalty_programs")
+}
+
+enum ProgramType {
+  POINTS
+  STAMPS
+  CASHBACK
+}
+
+// ============================================================
+// Rewards
+// ============================================================
+
+model Reward {
+  id          String  @id @default(uuid())
+  programId   String
+  name        String
+  description String? @db.Text
+  pointsCost  Int
+  imageUrl    String?
+  stock       Int?    // null = unlimited
+  minTier     String? // minimum tier name required
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  program     LoyaltyProgram    @relation(fields: [programId], references: [id], onDelete: Cascade)
+  redemptions RewardRedemption[]
+
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id          String           @id @default(uuid())
+  memberId    String
+  rewardId    String
+  pointsSpent Int
+  status      RedemptionStatus @default(PENDING)
+  redeemedAt  DateTime         @default(now())
+  completedAt DateTime?
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  reward Reward @relation(fields: [rewardId], references: [id])
+
+  @@map("reward_redemptions")
+}
+
+enum RedemptionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================================
+// Members (End Customers)
+// ============================================================
+
+model Member {
+  id           String   @id @default(uuid())
+  storeId      String
+  name         String
+  email        String?
+  phone        String?
+  birthday     DateTime? @db.Date
+  qrCodeToken  String    @unique @default(uuid())
+  magicToken   String?   @unique
+  magicTokenExp DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  store           Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  memberPrograms  MemberProgram[]
+  transactions    Transaction[]
+  redemptions     RewardRedemption[]
+  pushSubscriptions MemberPushSubscription[]
+
+  @@unique([storeId, phone])
+  @@unique([storeId, email])
+  @@map("members")
+}
+
+model MemberProgram {
+  id          String   @id @default(uuid())
+  memberId    String
+  programId   String
+  points      Int      @default(0)
+  stamps      Int      @default(0)
+  totalEarned Int      @default(0)
+  totalSpent  Int      @default(0)
+  tierLevel   String   @default("Bronze")
+  joinedAt    DateTime @default(now())
+
+  member  Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  program LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, programId])
+  @@map("member_programs")
+}
+
+// ============================================================
+// Transactions
+// ============================================================
+
+model Transaction {
+  id          String          @id @default(uuid())
+  memberId    String
+  programId   String
+  type        TransactionType
+  points      Int             // positive = earn, negative = spend
+  amount      Float?          // purchase amount (for reference)
+  description String?
+  campaignId  String?
+  createdById String?         // staff or owner who registered
+  expiresAt   DateTime?
+  createdAt   DateTime        @default(now())
+
+  member  Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  program LoyaltyProgram @relation(fields: [programId], references: [id])
+
+  @@index([memberId, programId])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+enum TransactionType {
+  EARN
+  REDEEM
+  EXPIRE
+  ADJUST
+  BONUS
+  REFERRAL
+}
+
+// ============================================================
+// Tiers
+// ============================================================
+
+model Tier {
+  id         String @id @default(uuid())
+  programId  String
+  name       String // Bronze, Prata, Ouro, Diamante
+  minPoints  Int    // minimum total earned to reach this tier
+  multiplier Float  @default(1.0) // point multiplier (e.g., 1.5x)
+  benefits   String? @db.Text // JSON array of benefits
+  color      String? // hex color
+  sortOrder  Int    @default(0)
+
+  program LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([programId, name])
+  @@map("tiers")
+}
+
+// ============================================================
+// Campaigns
+// ============================================================
+
+model Campaign {
+  id          String       @id @default(uuid())
+  storeId     String
+  programId   String?
+  name        String
+  description String?      @db.Text
+  type        CampaignType
+  multiplier  Float?       // e.g., 2.0 for double points
+  bonusPoints Int?         // fixed bonus (e.g., birthday bonus)
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+
+  store   Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  program LoyaltyProgram? @relation(fields: [programId], references: [id])
+
+  @@map("campaigns")
+}
+
+enum CampaignType {
+  DOUBLE_POINTS
+  BIRTHDAY
+  REFERRAL
+  SEASONAL
+  WELCOME
+}
+
+// ============================================================
+// Staff (store employees who can register transactions)
+// ============================================================
+
+model StaffMember {
+  id       String    @id @default(uuid())
+  storeId  String
+  name     String
+  email    String
+  pin      String    // 4-digit PIN for quick auth
+  isActive Boolean   @default(true)
+  createdAt DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, email])
+  @@map("staff_members")
+}
+
+// ============================================================
+// Analytics
+// ============================================================
+
+model StoreView {
+  id      String   @id @default(uuid())
+  storeId String
+  date    DateTime @db.Date
+  count   Int      @default(1)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, date])
+  @@map("store_views")
+}
+
+// ============================================================
+// Notifications (Store Owner)
+// ============================================================
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String   @db.Text
+  type      String   // MEMBER_JOIN, REDEMPTION, CAMPAIGN_START, etc.
+  isRead    Boolean  @default(false)
+  metadata  String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @db.Text
+  p256dh    String   @db.Text
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
+}
+
+model MemberPushSubscription {
+  id        String   @id @default(uuid())
+  memberId  String
+  endpoint  String   @db.Text
+  p256dh    String   @db.Text
+  auth      String
+  createdAt DateTime @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@map("member_push_subscriptions")
+}
+
+// ============================================================
+// Organizations (Multi-store B2B)
+// ============================================================
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  plan      Plan     @default(BUSINESS)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members OrganizationMember[]
+  invites OrganizationInvite[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String   @unique
+  role           OrgRole  @default(MEMBER)
+  joinedAt       DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("organization_members")
+}
+
+model OrganizationInvite {
+  id             String   @id @default(uuid())
+  organizationId String
+  email          String
+  role           OrgRole  @default(MEMBER)
+  token          String   @unique
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_invites")
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// ============================================================
+// Payments (Subscriptions)
+// ============================================================
+
+model Payment {
+  id             String        @id @default(uuid())
+  userId         String
+  amount         Float
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  mercadoPagoId  String?
+  mercadoPagoUrl String?
+  plan           Plan?
+  billingCycle   BillingCycle?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+// ============================================================
+// System
+// ============================================================
+
+model SystemSetting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String @db.Text
+
+  @@map("system_settings")
+}
