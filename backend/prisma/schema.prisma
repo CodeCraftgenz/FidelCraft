@@ -22,6 +22,9 @@ model User {
   googleId       String?  @unique
   totpSecret     String?
   totpEnabled    Boolean  @default(false)
+  backupCodes    String?  @db.Text
+  passwordResetToken   String?  @unique
+  passwordResetExpires DateTime?
   avatarUrl      String?
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
