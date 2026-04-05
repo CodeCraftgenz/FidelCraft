@@ -1,35 +1,55 @@
-import { Routes, Route } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './providers/auth-provider';
+import { PageLoader } from './components/ui';
+import { DashboardLayout } from './components/layouts/dashboard-layout';
 
-function App() {
+const LandingPage = lazy(() => import('./pages/public/landing-page').then(m => ({ default: m.LandingPage })));
+const LoginPage = lazy(() => import('./pages/auth/login-page').then(m => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/auth/register-page').then(m => ({ default: m.RegisterPage })));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password-page').then(m => ({ default: m.ForgotPasswordPage })));
+const StorePage = lazy(() => import('./pages/public/store-page').then(m => ({ default: m.StorePage })));
+const MemberDashboardPage = lazy(() => import('./pages/public/member-dashboard-page').then(m => ({ default: m.MemberDashboardPage })));
+const OverviewPage = lazy(() => import('./pages/dashboard/overview-page').then(m => ({ default: m.OverviewPage })));
+const ProgramsPage = lazy(() => import('./pages/dashboard/programs-page').then(m => ({ default: m.ProgramsPage })));
+const MembersPage = lazy(() => import('./pages/dashboard/members-page').then(m => ({ default: m.MembersPage })));
+const TransactionsPage = lazy(() => import('./pages/dashboard/transactions-page').then(m => ({ default: m.TransactionsPage })));
+const RewardsPage = lazy(() => import('./pages/dashboard/rewards-page').then(m => ({ default: m.RewardsPage })));
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <PageLoader />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function AppRoutes() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/health" element={<p className="p-4">FidelCraft OK</p>} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/l/:slug" element={<StorePage />} />
+        <Route path="/membro/:memberId" element={<MemberDashboardPage />} />
+        <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+          <Route index element={<OverviewPage />} />
+          <Route path="programas" element={<ProgramsPage />} />
+          <Route path="membros" element={<MembersPage />} />
+          <Route path="transacoes" element={<TransactionsPage />} />
+          <Route path="premios" element={<RewardsPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </div>
+    </Suspense>
   );
 }
 
-function LandingPage() {
+export default function App() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gradient-to-br from-brand-bg-dark to-slate-900">
-      <h1 className="font-heading text-5xl font-bold text-white">
-        Fidel<span className="text-brand-primary">Craft</span>
-      </h1>
-      <p className="max-w-md text-center text-lg text-slate-400">
-        Programa de fidelidade digital para comercios locais. Pontos, carimbos e cashback sem cartao de papel.
-      </p>
-      <div className="flex gap-4">
-        <a href="/register" className="rounded-lg bg-brand-primary px-6 py-3 font-semibold text-white transition hover:opacity-90">
-          Comecar Gratis
-        </a>
-        <a href="/login" className="rounded-lg border border-slate-600 px-6 py-3 font-semibold text-white transition hover:bg-slate-800">
-          Entrar
-        </a>
-      </div>
-    </main>
+    <AuthProvider>
+      <div className="min-h-screen bg-background text-foreground"><AppRoutes /></div>
+    </AuthProvider>
   );
 }
-
-export default App;
