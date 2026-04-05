@@ -29,7 +29,7 @@ export function ProgramsPage() {
   const { data: programs, isLoading } = useQuery<Program[]>({
     queryKey: ['programs'],
     queryFn: async () => {
-      const response = await api.get('/programs');
+      const response = await api.get('/programs').catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
   });

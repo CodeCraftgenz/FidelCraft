@@ -27,7 +27,7 @@ export function MembersPage() {
   const { data: members, isLoading } = useQuery<Member[]>({
     queryKey: ['members', search],
     queryFn: async () => {
-      const response = await api.get('/members', { params: search ? { search } : undefined });
+      const response = await api.get('/members', { params: search ? { search } : undefined }).catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
   });

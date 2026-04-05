@@ -31,7 +31,7 @@ export function TransactionsPage() {
   const { data: programs } = useQuery<{ id: string; name: string }[]>({
     queryKey: ['programs'],
     queryFn: async () => {
-      const response = await api.get('/programs');
+      const response = await api.get('/programs').catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
   });
@@ -39,7 +39,7 @@ export function TransactionsPage() {
   const { data: transactions, isLoading } = useQuery<Transaction[]>({
     queryKey: ['transactions'],
     queryFn: async () => {
-      const response = await api.get('/transactions', { params: { limit: 20 } });
+      const response = await api.get('/transactions', { params: { limit: 20 } }).catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
   });

@@ -33,7 +33,7 @@ export function RewardsPage() {
   const { data: rewards, isLoading } = useQuery<Reward[]>({
     queryKey: ['rewards'],
     queryFn: async () => {
-      const response = await api.get('/rewards');
+      const response = await api.get('/rewards').catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
   });
@@ -41,7 +41,7 @@ export function RewardsPage() {
   const { data: redemptions, isLoading: loadingRedemptions } = useQuery<Redemption[]>({
     queryKey: ['redemptions-pending'],
     queryFn: async () => {
-      const response = await api.get('/redemptions', { params: { status: 'PENDING' } });
+      const response = await api.get('/redemptions', { params: { status: 'PENDING' } }).catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
   });

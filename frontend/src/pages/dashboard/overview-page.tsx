@@ -14,16 +14,16 @@ export function OverviewPage() {
   const { data: stats, isLoading } = useQuery<Stats>({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const response = await api.get('/dashboard/stats');
-      return response.data.data;
+      const response = await api.get('/analytics/store/all/dashboard').catch(() => null);
+      return response?.data?.data ?? { totalMembers: 0, transactionsToday: 0, pointsEarnedThisMonth: 0, engagementRate: 0 };
     },
   });
 
   const { data: recentTransactions, isLoading: loadingTx } = useQuery({
     queryKey: ['dashboard-recent-transactions'],
     queryFn: async () => {
-      const response = await api.get('/transactions', { params: { limit: 5 } });
-      return response.data.data;
+      const response = await api.get('/transactions/store/all', { params: { limit: 5 } }).catch(() => null);
+      return response?.data?.data ?? [];
     },
   });
 
