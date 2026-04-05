@@ -57,7 +57,7 @@ export function MemberDashboardPage() {
   const { data, isLoading } = useQuery<MemberDashboard>({
     queryKey: ['member-dashboard', memberId],
     queryFn: async () => {
-      const response = await api.get(`/public/members/${memberId}/dashboard`);
+      const response = await api.get(`/members/dashboard/${memberId}`);
       return response.data.data;
     },
     enabled: !!memberId,

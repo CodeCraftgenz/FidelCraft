@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './providers/auth-provider';
-import { PageLoader } from './components/ui';
+import { PageLoader, ToastProvider } from './components/ui';
 import { DashboardLayout } from './components/layouts/dashboard-layout';
 
 // Auth pages (named exports)
@@ -68,7 +68,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-background text-foreground"><AppRoutes /></div>
+      <ToastProvider>
+        <div className="min-h-screen bg-background text-foreground"><AppRoutes /></div>
+      </ToastProvider>
     </AuthProvider>
   );
 }

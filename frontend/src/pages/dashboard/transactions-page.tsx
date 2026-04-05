@@ -28,20 +28,25 @@ export function TransactionsPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ memberPhone: '', purchaseAmount: '', programId: '' });
 
+  const { data: stores } = useQuery({ queryKey: ['my-stores'], queryFn: async () => { const r = await api.get('/stores/me/stores').catch(() => null); return r?.data?.data ?? []; } });
+  const storeId = (stores as any[])?.[0]?.id;
+
   const { data: programs } = useQuery<{ id: string; name: string }[]>({
-    queryKey: ['programs'],
+    queryKey: ['programs', storeId],
     queryFn: async () => {
-      const response = await api.get('/programs').catch(() => ({ data: { data: [] } }));
+      const response = await api.get(`/programs/me/store/${storeId}`).catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
+    enabled: !!storeId,
   });
 
   const { data: transactions, isLoading } = useQuery<Transaction[]>({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', storeId],
     queryFn: async () => {
-      const response = await api.get('/transactions', { params: { limit: 20 } }).catch(() => ({ data: { data: [] } }));
+      const response = await api.get(`/transactions/store/${storeId}`, { params: { limit: 20 } }).catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
+    enabled: !!storeId,
   });
 
   const earnMutation = useMutation({

@@ -26,12 +26,16 @@ export function ProgramsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', type: 'POINTS' as Program['type'], pointsPerCurrency: 1, description: '' });
 
+  const { data: stores } = useQuery({ queryKey: ['my-stores'], queryFn: async () => { const r = await api.get('/stores/me/stores').catch(() => null); return r?.data?.data ?? []; } });
+  const storeId = (stores as any[])?.[0]?.id;
+
   const { data: programs, isLoading } = useQuery<Program[]>({
-    queryKey: ['programs'],
+    queryKey: ['programs', storeId],
     queryFn: async () => {
-      const response = await api.get('/programs').catch(() => ({ data: { data: [] } }));
+      const response = await api.get(`/programs/me/store/${storeId}`).catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
+    enabled: !!storeId,
   });
 
   const createMutation = useMutation({

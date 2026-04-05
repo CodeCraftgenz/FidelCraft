@@ -36,7 +36,7 @@ export function StorePage() {
   const { data: store, isLoading } = useQuery<StoreInfo>({
     queryKey: ['public-store', storeSlug],
     queryFn: async () => {
-      const response = await api.get(`/public/stores/${storeSlug}`);
+      const response = await api.get(`/stores/${storeSlug}`);
       return response.data.data;
     },
     enabled: !!storeSlug,
@@ -44,7 +44,7 @@ export function StorePage() {
 
   const joinMutation = useMutation({
     mutationFn: (data: { name: string; phone: string }) =>
-      api.post(`/public/stores/${storeSlug}/join`, data),
+      api.post('/members/register', { ...data, storeSlug }),
     onSuccess: () => {
       setJoined(true);
       setShowJoinForm(false);

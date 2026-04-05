@@ -24,12 +24,16 @@ const TIER_CONFIG: Record<string, { label: string; className: string }> = {
 export function MembersPage() {
   const [search, setSearch] = useState('');
 
+  const { data: stores } = useQuery({ queryKey: ['my-stores'], queryFn: async () => { const r = await api.get('/stores/me/stores').catch(() => null); return r?.data?.data ?? []; } });
+  const storeId = (stores as any[])?.[0]?.id;
+
   const { data: members, isLoading } = useQuery<Member[]>({
-    queryKey: ['members', search],
+    queryKey: ['members', storeId, search],
     queryFn: async () => {
-      const response = await api.get('/members', { params: search ? { search } : undefined }).catch(() => ({ data: { data: [] } }));
+      const response = await api.get(`/members/store/${storeId}`, { params: search ? { search } : undefined }).catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
+    enabled: !!storeId,
   });
 
   return (

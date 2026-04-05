@@ -30,20 +30,35 @@ export function RewardsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', pointsCost: 100, stock: 10 });
 
-  const { data: rewards, isLoading } = useQuery<Reward[]>({
-    queryKey: ['rewards'],
+  const { data: stores } = useQuery({ queryKey: ['my-stores'], queryFn: async () => { const r = await api.get('/stores/me/stores').catch(() => null); return r?.data?.data ?? []; } });
+  const storeId = (stores as any[])?.[0]?.id;
+
+  const { data: programs } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['programs', storeId],
     queryFn: async () => {
-      const response = await api.get('/rewards').catch(() => ({ data: { data: [] } }));
+      const response = await api.get(`/programs/me/store/${storeId}`).catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
+    enabled: !!storeId,
+  });
+  const firstProgramId = (programs as any[])?.[0]?.id;
+
+  const { data: rewards, isLoading } = useQuery<Reward[]>({
+    queryKey: ['rewards', firstProgramId],
+    queryFn: async () => {
+      const response = await api.get(`/rewards/program/${firstProgramId}`).catch(() => ({ data: { data: [] } }));
+      return response.data.data;
+    },
+    enabled: !!firstProgramId,
   });
 
   const { data: redemptions, isLoading: loadingRedemptions } = useQuery<Redemption[]>({
-    queryKey: ['redemptions-pending'],
+    queryKey: ['redemptions-pending', storeId],
     queryFn: async () => {
-      const response = await api.get('/redemptions', { params: { status: 'PENDING' } }).catch(() => ({ data: { data: [] } }));
+      const response = await api.get(`/rewards/store/${storeId}/pending`).catch(() => ({ data: { data: [] } }));
       return response.data.data;
     },
+    enabled: !!storeId,
   });
 
   const saveMutation = useMutation({
@@ -61,7 +76,7 @@ export function RewardsPage() {
   });
 
   const completeMutation = useMutation({
-    mutationFn: (id: string) => api.patch(`/redemptions/${id}`, { status: 'COMPLETED' }),
+    mutationFn: (id: string) => api.patch(`/rewards/redemptions/${id}/complete`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['redemptions-pending'] }),
   });
 

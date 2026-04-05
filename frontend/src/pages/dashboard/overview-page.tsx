@@ -11,20 +11,25 @@ interface Stats {
 }
 
 export function OverviewPage() {
+  const { data: stores } = useQuery({ queryKey: ['my-stores'], queryFn: async () => { const r = await api.get('/stores/me/stores').catch(() => null); return r?.data?.data ?? []; } });
+  const storeId = (stores as any[])?.[0]?.id;
+
   const { data: stats, isLoading } = useQuery<Stats>({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-stats', storeId],
     queryFn: async () => {
-      const response = await api.get('/analytics/store/all/dashboard').catch(() => null);
+      const response = await api.get(`/analytics/store/${storeId}/dashboard`).catch(() => null);
       return response?.data?.data ?? { totalMembers: 0, transactionsToday: 0, pointsEarnedThisMonth: 0, engagementRate: 0 };
     },
+    enabled: !!storeId,
   });
 
   const { data: recentTransactions, isLoading: loadingTx } = useQuery({
-    queryKey: ['dashboard-recent-transactions'],
+    queryKey: ['dashboard-recent-transactions', storeId],
     queryFn: async () => {
-      const response = await api.get('/transactions/store/all', { params: { limit: 5 } }).catch(() => null);
+      const response = await api.get(`/transactions/store/${storeId}`, { params: { limit: 5 } }).catch(() => null);
       return response?.data?.data ?? [];
     },
+    enabled: !!storeId,
   });
 
   if (isLoading) {
