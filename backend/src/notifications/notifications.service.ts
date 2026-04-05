@@ -21,7 +21,7 @@ export class NotificationsService {
     const privateKey = this.configService.get('VAPID_PRIVATE_KEY', { infer: true });
     const subject = this.configService.get('VAPID_SUBJECT', { infer: true });
 
-    if (publicKey && privateKey && subject) {
+    if (publicKey && privateKey && subject && publicKey.length > 40) {
       webpush.setVapidDetails(subject, publicKey, privateKey);
       this.vapidConfigured = true;
       this.logger.log('VAPID configured for push notifications');
